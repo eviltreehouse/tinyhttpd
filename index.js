@@ -2,10 +2,14 @@ var debug = require('debug')('tinyhttpd:starter');
 
 var TinyHttpd = require('./tinyhttpd');
 
-var tinyHttpd = new TinyHttpd().then((self) => {
+var tinyHttpd = new TinyHttpd(
+	{
+		'basedir': process.cwd() + '/app_test'
+	}
+	).then((self) => {
 	self.start().then((self) => {
 		debug('tinyHttpd started on %s', self.url);
-		self.surfTo();
+//		self.surfTo();
 		
 	}, (err) => {
 		console.error('ERROR starting tinyHttpd', err);

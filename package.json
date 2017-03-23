@@ -1,13 +1,13 @@
 {
   "name": "tinyhttpd",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.1.0",
+  "description": "A convention-over-configuration lightweight HTTP server w/ a few helpful small-footprint builtins",
   "main": "index.js",
   "scripts": {
     "start": "node ./index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Corey Sharrah <corey@eviltreehouse.com>",
   "license": "ISC",
   "dependencies": {
     "debug": "^2.6.3",
