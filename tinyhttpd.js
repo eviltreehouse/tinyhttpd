@@ -66,6 +66,11 @@ TinyHttpd.prototype.setUp = function(cnf) {
 		else if (def[0] == 'l') this.registerLess(def[1], def[2]);
 	}
 	
+	this.disp.onError(function(req, res) {
+		res.writeHead(404);
+		res.end('File Not Found');
+	});
+	
 	return lie.resolve(this);
 };
 
@@ -117,6 +122,12 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 		res.writeHead(200, { 'Content-Type': c_type});
 		res.end(content);
 	};
+	
+	// .redirect - send 301
+	res.redirect = function(to) {
+		res.writeHead(301, { 'Location': to});
+		res.end();
+    };
 };
 
 TinyHttpd.prototype.start = function() {
