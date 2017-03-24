@@ -5,6 +5,7 @@ var debug = require('debug')('tinyhttpd:main');
 var spawn = require('child_process').spawn;
 
 var httpd = require('http');
+var url = require('url');
 var ejs = require('ejs');
 var less = require('less');
 
@@ -16,6 +17,8 @@ function TinyHttpd(config) {
 	this.disp   = new HttpDispatcher();
 	this.http   = null;
 	this.url = 'http://' + [this.config.interface, this.config.port].join(":");
+
+	this.version = require('./package').version;
 	
 	var self = this;
 	
@@ -165,9 +168,11 @@ TinyHttpd.prototype.register = function(ext_path, fn) {
 //	debug("register => %s %s", ext_path, fn);
 	
 	hf = fn.replace(/\.js$/, '');
-	def = /^(.*?)\.(.*?)$/.exec(hf);
+	def = /^(.*?)(-x)?\.(.*?)$/.exec(hf);
 	var mpath = def[1];
-	var method = def[2];
+	var dashx = def[2] ? true : false;
+	
+	var method = def[3];
 	if (! mpath || ! method) return;
 	
 	var h = null;
@@ -185,22 +190,55 @@ TinyHttpd.prototype.register = function(ext_path, fn) {
 	};
 	
 	var mounts = [];
-	
-	mounts.push((ext_path ? "/" + ext_path : '') + "/" + 
-		(mpath == 'index' ? '' : mpath)
-	);
-	
-	if (mpath == 'index' && ext_path.length > 0) {
-		// let index response to /dir as well as /dir/
-		mounts.push("/" + ext_path);
+
+	if (dashx) {
+		// entity handler: /h/xyz
+		mounts.push(
+			new RegExp("^" + 
+				(ext_path ? "/" + ext_path : '') + "/" +
+				(mpath == 'index' ? '' : mpath) +
+				"/.+$"
+			)
+		);
+	} else {
+		// standard exact-match handler
+		mounts.push((ext_path ? "/" + ext_path : '') + "/" + 
+			(mpath == 'index' ? '' : mpath)
+		);
+
+		if (mpath == 'index' && ext_path.length > 0) {
+			// let index response to /dir as well as /dir/
+			mounts.push("/" + ext_path);
+		}
 	}
 	
 	if (h) {
+		if (dashx) {
+			// dig out our ID value
+			var hndl = h;
+			h = function(req, res) {
+				var url_path = url.parse(req.url).pathname;
+				var mnt = mounts[0].toString();
+				
+				mnt = mnt.replace(/\^/, '').replace(/^\//, '')
+					.replace(/\/$/, '').replace(".+$", '').replace(/\\\//g, "/")
+				;				
+				var id = url_path.replace(mnt, '');
+
+				if (id.match(/\//)) {
+					// multiple elements
+					id = id.split(/\//);
+				}
+				
+				return hndl(req, res, id);
+			};
+		}
 		for (var mi in mounts) {
 			var mount = mounts[mi];
 			
 			this.disp[rmeth[method]](mount, h);
-			debug("ADDED %s %s => %s", method.toUpperCase(), mount, fn);
+			debug("ADDED %s %s => %s", method.toUpperCase(), typeof mount == 'string' ? mount : mount.toString(), fn);
+//			if (dashx) debug("DASH-X => TRUE");
 		}
 	}
 }

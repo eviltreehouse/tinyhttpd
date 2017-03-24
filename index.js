@@ -8,7 +8,7 @@ var tinyHttpd = new TinyHttpd(
 	}
 	).then((self) => {
 	self.start().then((self) => {
-		debug('tinyHttpd started on %s', self.url);
+		debug('tinyHttpd %s started on %s', self.version, self.url);
 //		self.surfTo();
 		
 	}, (err) => {
