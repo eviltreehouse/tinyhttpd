@@ -5,6 +5,8 @@ var debug = require('debug')('tinyhttpd:main');
 var spawn = require('child_process').spawn;
 
 var httpd = require('http');
+var ejs = require('ejs');
+
 var HttpDispatcher = require('httpdispatcher');
 
 
@@ -23,13 +25,12 @@ function TinyHttpd(config) {
 }
 
 TinyHttpd.prototype.parseBaseDir = function(root, sub_dir) {
-	// @TODO Look at the files in our basedir and grab the important defs.
 	var self = this;
 	
 	var loaded = [];
 	
 		var fpath = path.join(this.config.basedir, root);
-		debug("fpath => %s", fpath);
+//		debug("fpath => %s", fpath);
 		
 		var files = fs.readdirSync(fpath);
 		
@@ -39,7 +40,7 @@ TinyHttpd.prototype.parseBaseDir = function(root, sub_dir) {
 			if (st.isFile() && isValidHandler(v)) {
 				loaded.push([ root, v ]);
 			} else if (st.isDirectory()) {
-				debug("Traversing.. %s", v);
+//				debug("Traversing.. %s", v);
 				var hs = self.parseBaseDir(path.join(root, v), true);
 				loaded = loaded.concat(hs);
 			}
@@ -50,13 +51,58 @@ TinyHttpd.prototype.parseBaseDir = function(root, sub_dir) {
 };
 
 TinyHttpd.prototype.setUp = function(cnf) {
+	this.setupResponseFilter();
+	
 	for (var hi in cnf) {
-		debug(cnf[hi]);
-		
+		//debug(cnf[hi]);
 		this.register(cnf[hi][0], cnf[hi][1]);
 	}
 	
 	return lie.resolve(this);
+};
+
+TinyHttpd.prototype.setupResponseFilter = function() {
+	var self = this;
+	
+	this.disp.beforeFilter(/\//, function(req, res, chain) {
+		self.augmentResponse(res);
+		
+		chain.next(req, res, chain);
+	})
+};
+
+TinyHttpd.prototype.augmentResponse = function(res) {
+	var self = this;
+	
+	// .app - reference to tinyhttpd instance
+	res.app = self;
+	
+	// .render - EJS shorthand
+	res.render = function(v, data) {
+		var output = "";
+		try {
+			var view_file = path.join(self.config.basedir, v + ".ejs");
+			if (fs.existsSync(view_file)) {
+				var src = fs.readFileSync(view_file).toString('utf8');
+				output = ejs.render(src, data);
+			} else {
+				output = `[Cannot load view src: ${v}]`;
+			}
+		} catch(e) {
+			debug(e.message);
+			output = `[render() ERROR: ${e.name}]`;
+		}
+		
+		res.writeHead(200, { 'Content-Type': 'text/html' });
+		res.end(output);
+	};
+	
+	// .err - non-200 response
+	res.err = function(http_code, err_msg, c_type) {
+		if (! c_type) c_type = 'text/plain';
+		res.writeHead(http_code, { 'Content-Type': c_type });
+		res.end(err_msg ? err_msg : '');
+	};
 };
 
 TinyHttpd.prototype.start = function() {
@@ -80,6 +126,18 @@ TinyHttpd.prototype.start = function() {
 	});
 };
 
+TinyHttpd.prototype.stop = function() {
+	return new lie((resolve) => {
+		debug("Stopping httpd service");
+		this.http.close(() => {
+			debug("httpd Stopped.");
+			this.disp = this.http = null;
+			
+			resolve(true);
+		});
+	});
+};
+
 TinyHttpd.prototype.surfTo = function(uri) {
 	var url = this.url;
 	if (uri) {
@@ -93,7 +151,7 @@ TinyHttpd.prototype.surfTo = function(uri) {
 }
 
 TinyHttpd.prototype.register = function(ext_path, fn) {
-	debug("register => %s %s", ext_path, fn);
+//	debug("register => %s %s", ext_path, fn);
 	
 	hf = fn.replace(/\.js$/, '');
 	def = /^(.*?)\.(.*?)$/.exec(hf);
@@ -115,14 +173,25 @@ TinyHttpd.prototype.register = function(ext_path, fn) {
 		'post': 'onPost'
 	};
 	
-	debug(h ? "has handler" : "could not load handler");
+	var mounts = [];
 	
-	var mount = (ext_path ? "/" + ext_path : '') + "/" + 
+	mounts.push((ext_path ? "/" + ext_path : '') + "/" + 
 		(mpath == 'index' ? '' : mpath)
-	;
+	);
 	
-	if (h) this.disp[rmeth[method]](mount, h);
-	debug("ADDED %s %s => %s", method.toUpperCase(), mount, fn);
+	if (mpath == 'index' && ext_path.length > 0) {
+		// let index response to /dir as well as /dir/
+		mounts.push("/" + ext_path);
+	}
+	
+	if (h) {
+		for (var mi in mounts) {
+			var mount = mounts[mi];
+			
+			this.disp[rmeth[method]](mount, h);
+			debug("ADDED %s %s => %s", method.toUpperCase(), mount, fn);
+		}
+	}
 }
 
 function isValidHandler(fn) {
