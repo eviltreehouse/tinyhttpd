@@ -1,6 +1,6 @@
 {
   "name": "tinyhttpd",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A convention-over-configuration lightweight HTTP server w/ a few helpful small-footprint builtins",
   "main": "index.js",
   "scripts": {
@@ -13,6 +13,7 @@
     "debug": "^2.6.3",
     "ejs": "^2.5.6",
     "httpdispatcher": "^2.0.1",
+    "less": "^2.7.2",
     "lie": "^3.1.1"
   }
 }

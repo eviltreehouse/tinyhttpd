@@ -6,6 +6,7 @@ var spawn = require('child_process').spawn;
 
 var httpd = require('http');
 var ejs = require('ejs');
+var less = require('less');
 
 var HttpDispatcher = require('httpdispatcher');
 
@@ -38,7 +39,9 @@ TinyHttpd.prototype.parseBaseDir = function(root, sub_dir) {
 			debug("%s/%s", root, v);
 			var st = fs.statSync(fpath + "/" + v);
 			if (st.isFile() && isValidHandler(v)) {
-				loaded.push([ root, v ]);
+				loaded.push([ 'h', root, v ]);
+			} else if (st.isFile() && isLess(v)) {
+				loaded.push([ 'l', root, v ]);
 			} else if (st.isDirectory()) {
 //				debug("Traversing.. %s", v);
 				var hs = self.parseBaseDir(path.join(root, v), true);
@@ -55,7 +58,9 @@ TinyHttpd.prototype.setUp = function(cnf) {
 	
 	for (var hi in cnf) {
 		//debug(cnf[hi]);
-		this.register(cnf[hi][0], cnf[hi][1]);
+		var def = cnf[hi];
+		if (def[0] == 'h') this.register(def[1], def[2]);
+		else if (def[0] == 'l') this.registerLess(def[1], def[2]);
 	}
 	
 	return lie.resolve(this);
@@ -102,6 +107,12 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 		if (! c_type) c_type = 'text/plain';
 		res.writeHead(http_code, { 'Content-Type': c_type });
 		res.end(err_msg ? err_msg : '');
+	};
+	
+	// .deliver - send 200, ctype, .end(content)
+	res.deliver = function(c_type, content) {
+		res.writeHead(200, { 'Content-Type': c_type});
+		res.end(content);
 	};
 };
 
@@ -194,8 +205,54 @@ TinyHttpd.prototype.register = function(ext_path, fn) {
 	}
 }
 
+TinyHttpd.prototype.registerLess = function(ext_path, fn) {
+	// @TODO -- set up a handler that, when requesting /subdir/stylesheet.css, will
+	// render and return /subdir/stylesheet.less.
+//	debug("registerLess() not implemented");
+//	return;
+	hf = fn.replace(/\.less$/, '');
+	
+	var hp = path.join(this.config.basedir, ext_path, fn);
+	
+	var mount = (ext_path.length > 0 ? '/' : '') + `${ext_path}/${hf}.css`;
+	
+	this.disp.onGet(mount, (req, res) => {
+		lessRender(this, hp).then((output) => {
+			if (output) {
+				res.deliver('text/css', output);
+//				res.writeHead('200', {'Content-Type': 'text/css'});
+//				res.end(output);
+			} else {
+				res.err(404, 'No CSS output?');
+			}
+		});
+	});
+	
+	debug("ADDED %s %s =render=> %s", 'GET', mount, hf + ".less");
+};
+
 function isValidHandler(fn) {
 	return fn.match(/\.(?:get|post)\.js$/);
+}
+
+function isLess(fn) {
+	return fn.match(/\.less$/);
+}
+
+function lessRender(th, less_file) {
+	
+	var opts = {
+		'sourceMapBasePath': path.dirname(less_file) + "/"
+	};
+	
+	return new lie((resolve) => {
+		less.render(fs.readFileSync(less_file).toString('utf8'), opts).then((output) => {
+			resolve(output.css);
+		}, (err) => {
+			debug("LESS render error: " + err);
+			resolve('');
+		});
+	});
 }
 
 function defaultConfig() {
