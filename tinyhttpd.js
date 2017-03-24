@@ -242,8 +242,11 @@ function isLess(fn) {
 function lessRender(th, less_file) {
 	
 	var opts = {
-		'sourceMapBasePath': path.dirname(less_file) + "/"
+		'filename': less_file,
+//		'sourceMapRootPath': path.dirname(less_file) + "/"
 	};
+	
+	debug("lessRender() %j", opts);
 	
 	return new lie((resolve) => {
 		less.render(fs.readFileSync(less_file).toString('utf8'), opts).then((output) => {
