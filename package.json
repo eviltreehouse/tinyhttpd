@@ -1,6 +1,6 @@
 {
   "name": "tinyhttpd",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A convention-over-configuration lightweight HTTP server w/ a few helpful small-footprint builtins",
   "main": "index.js",
   "scripts": {
