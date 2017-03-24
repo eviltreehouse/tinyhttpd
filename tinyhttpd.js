@@ -137,7 +137,7 @@ TinyHttpd.prototype.augmentRequest = function(req) {
 	for (var id in this.provides) {
 		var v;
 		if (typeof this.provides[id] == 'function') {
-			// @TODO don't pass entire th instance -- but only the things that might matter.
+			// @FIXME don't pass entire th instance -- but only the things that might matter.
 			v = this.provides[id](self);
 		} else {
 			v = this.provides[id];
@@ -324,10 +324,6 @@ TinyHttpd.prototype.register = function(ext_path, fn) {
 }
 
 TinyHttpd.prototype.registerLess = function(ext_path, fn) {
-	// @TODO -- set up a handler that, when requesting /subdir/stylesheet.css, will
-	// render and return /subdir/stylesheet.less.
-//	debug("registerLess() not implemented");
-//	return;
 	hf = fn.replace(/\.less$/, '');
 	
 	var hp = path.join(this.config.basedir, ext_path, fn);

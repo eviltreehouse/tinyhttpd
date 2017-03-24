@@ -96,4 +96,18 @@ describe("Parsing/Providing Tests", () => {
 			}
 		}, done);		
 	});	
+	
+	it("Should be able to compile LESS on-the-fly and serve standard CSS", (done) => {
+		util.get('/test.css', {}).then((resp) => {
+			try {
+				assert(resp.code == 200, 'HTTP code is not 200');
+				assert(resp.obj.headers['content-type'] == 'text/css', 'Content type is ' + resp.obj.headers['content-type']);
+				assert(resp.body.match(/color: \#900;/), 'Body is not as expected');
+				done();
+			} catch(e) {
+				done(e.message);
+			}
+		}, done);		
+		
+	});
 });

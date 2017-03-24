@@ -12,7 +12,7 @@ function get(uri, qs) {
 			if (err) {
 				reject(err);
 			} else {
-				resolve({ 'code': response.statusCode, 'body': body, 'res': response });
+				resolve({ 'code': response.statusCode, 'body': body, 'obj': response });
 			}
 		});
 	});
