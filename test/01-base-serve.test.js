@@ -37,8 +37,38 @@ describe("Base httpd responsibilites", () => {
 	
 	it("Should serve requests", (done) => {
 		util.get('/', {}).then((resp) => {
-			assert(resp.code == 404);
-			done();
+			try {
+				assert(resp.code == 404, 'HTTP code is not 404');
+				done();
+			} catch(e) {
+				done(e.message);
+			}
 		}, done);
 	});
+	
+	it("Should let us establish a static route and read from it", function(done) {
+		th.route('/', 'get', function(req, res) { 
+			res.deliver('text/plain', 'Hello');
+		});
+		
+		util.get('/', {}).then(function(resp) {
+			try {
+				assert(resp.code == 200, 'HTTP code is not 200');
+				assert(resp.body == 'Hello', 'Body is not "Hello"');
+				
+				util.get('/should-be-404', {}).then(function(resp) {
+					try {
+						assert(resp.code == 404, 'HTTP code is not 404');
+						done();
+					} catch(e) {
+						done(e.message);
+					}
+				});
+			} catch(e) {
+				done(e.message);
+			}
+			
+//			done();
+		}, done);
+	})
 });

@@ -42,6 +42,35 @@ TinyHttpd.prototype.provide = function(id, cb) {
 	this.provides[id] = cb;
 };
 
+/** 
+ * If you 'really' want to configure your own routing
+ * you can do it this way (essentially just a wrapper 
+ * for the dispatcher.)
+ */
+TinyHttpd.prototype.route = function(r, m, h) {
+	var dispMap = {'get': 'onGet', 'post': 'onPost' };
+	if (typeof r == 'object' && !m && !h) {
+		// route table
+		// [
+		// 	[ method, route|regexp, handler ],
+		//	 ...
+		// ]
+		for (var ri in r) {
+			this.route.apply(this, r[ri]);
+		}
+	} else if (r && m && h) {
+		// static
+		if (! dispMap[m.toLowerCase()]) {
+			debug(`Method ${m} not supported!`);
+			return;	
+		}
+		
+		debug(`+ ${m} ${r} ==>`);
+		
+		this.disp[dispMap[m.toLowerCase()]](r, h);
+	}
+};
+
 TinyHttpd.prototype.parseBaseDir = function(root, sub_dir) {
 	var self = this;
 	
