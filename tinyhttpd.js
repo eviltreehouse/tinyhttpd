@@ -18,15 +18,29 @@ function TinyHttpd(config) {
 	this.http   = null;
 	this.url = 'http://' + [this.config.interface, this.config.port].join(":");
 
+	this.started = false;
+	
 	this.version = require('./package').version;
+	this.provides = {};
 	
 	var self = this;
 	
-	var parseBaseDir = function() { return self.parseBaseDir('', false); };
+	var parseBaseDir = function() { 
+		if (self.config.basedir == null && !fs.existsSync(self.config.basedir)) {
+			debug("Basedir not defined or is not accessible. Skipping dynamic configuration.");
+			return lie.resolve([]);	
+		} else {
+			return self.parseBaseDir('', false); 
+		}
+	};
 	var setUp = function(app) { return self.setUp(app); };
 	
 	return parseBaseDir().then(setUp).catch((err) => { console.error('err!', err); });
 }
+
+TinyHttpd.prototype.provide = function(id, cb) {
+	this.provides[id] = cb;
+};
 
 TinyHttpd.prototype.parseBaseDir = function(root, sub_dir) {
 	var self = this;
@@ -78,10 +92,33 @@ TinyHttpd.prototype.setupResponseFilter = function() {
 	var self = this;
 	
 	this.disp.beforeFilter(/\//, function(req, res, chain) {
+		self.augmentRequest(req);
 		self.augmentResponse(res);
 		
 		chain.next(req, res, chain);
-	})
+	});	
+};
+
+TinyHttpd.prototype.augmentRequest = function(req) {
+	var self = this;
+	
+	self.my = {};
+
+	// Set up our custom provisions
+	for (var id in this.provides) {
+		var v;
+		if (typeof this.provides[id] == 'function') {
+			// @TODO don't pass entire th instance -- but only the things that might matter.
+			v = this.provides[id](self);
+		} else {
+			v = this.provides[id];
+		}
+		
+		self.my[id] = v;
+	}
+	
+	// req.app.my.x or req.my.x
+	req.my = self.my;
 };
 
 TinyHttpd.prototype.augmentResponse = function(res) {
@@ -97,7 +134,9 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 			var view_file = path.join(self.config.basedir, v + ".ejs");
 			if (fs.existsSync(view_file)) {
 				var src = fs.readFileSync(view_file).toString('utf8');
-				output = ejs.render(src, data);
+				
+				var view_data = mergeViewData(data, self.my);
+				output = ejs.render(src, view_data);
 			} else {
 				output = `[Cannot load view src: ${v}]`;
 			}
@@ -141,13 +180,13 @@ TinyHttpd.prototype.start = function() {
 		
 		if (this.http) {
 			this.http.listen(this.config.port, this.config.interface);
-			debug(`httpd service listening on ${this.config.port}:${this.config.interface}`);
+			debug(`httpd service listening on ${this.config.interface}:${this.config.port}`);
+			this.started = true;
+			resolve(scope);			
 		} else {
 			debug("Failed to create httpd server!");
 			reject('createServer failed');
 		}
-		
-		resolve(this);
 	});
 };
 
@@ -157,6 +196,7 @@ TinyHttpd.prototype.stop = function() {
 		this.http.close(() => {
 			debug("httpd Stopped.");
 			this.disp = this.http = null;
+			this.started = false;
 			
 			resolve(true);
 		});
@@ -306,6 +346,24 @@ function lessRender(th, less_file) {
 		});
 	});
 }
+
+function mergeViewData(definite, passive) {
+	var data = {};
+	for (var vk in passive) {
+		data[vk] = passive[vk];
+	}
+	
+	for (var vk in definite) {
+		if (typeof data[vk] !== 'undefined') {
+			// resolve the conflict before overwrite
+			data['my_' + vk] = data[vk];
+		}
+		
+		data[vk] = definite[vk];
+	}
+
+	return data;
+};
 
 function defaultConfig() {
 	return {
