@@ -13,3 +13,4 @@ Base of project: https://blog.xervo.io/build-your-first-http-server-in-nodejs
 * //@FIXME EJS includes probably don't work as-is (needs *filename* option during render to parse paths)
 
 #### [Future] Nice-To-Haves
+* //@FUTURE Auto CDN links (library/version => //cdn.cloudflare.com/.../)
