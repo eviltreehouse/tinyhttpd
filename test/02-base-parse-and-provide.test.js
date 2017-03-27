@@ -47,6 +47,19 @@ describe("Parsing/Providing Tests", () => {
 		}, done);
 	});	
 	
+	it("Should serve requests that involve handler modules and EJS (w/ includes)", (done) => {
+		util.get('/', {}).then((resp) => {
+			try {
+				assert(resp.code == 200, 'HTTP code is not 200');
+				assert(resp.body.match(/Included\:true/));
+				assert(resp.body.match(/Included Subdir\:true/));
+				done();
+			} catch(e) {
+				done(e.message);
+			}
+		}, done);
+	});	
+	
 	it("Should be able to serve handlers within subdirs", (done) => {
 		util.get('/sd/', {}).then((resp) => {
 			try {

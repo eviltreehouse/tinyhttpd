@@ -8,6 +8,7 @@ var httpd = require('http');
 var url = require('url');
 var ejs = require('ejs');
 var less = require('less');
+var cookie = require('cookie');
 
 var HttpDispatcher = require('httpdispatcher');
 
@@ -114,6 +115,8 @@ TinyHttpd.prototype.setUp = function(cnf) {
 		res.end('File Not Found');
 	});
 	
+	this.setupPostFilter();
+	
 	return lie.resolve(this);
 };
 
@@ -126,6 +129,15 @@ TinyHttpd.prototype.setupResponseFilter = function() {
 		
 		chain.next(req, res, chain);
 	});	
+};
+
+TinyHttpd.prototype.setupPostFilter = function() {
+	// @todo -- do we need to do anything after we
+	// finish the request?
+	this.disp.afterFilter(/\//, function(req, res, chain) {
+		debug("In post filter...");	
+		chain.next(req, res, chain);
+	});
 };
 
 TinyHttpd.prototype.augmentRequest = function(req) {
@@ -165,7 +177,12 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 				var src = fs.readFileSync(view_file).toString('utf8');
 				
 				var view_data = mergeViewData(data, self.my);
-				output = ejs.render(src, view_data);
+				var opts = {
+					// so includes will work..
+					'filename': view_file
+				};
+				
+				output = ejs.render(src, view_data, opts);
 			} else {
 				output = `[Cannot load view src: ${v}]`;
 			}
@@ -392,9 +409,13 @@ function mergeViewData(definite, passive) {
 
 function defaultConfig() {
 	return {
+		'secret': null,
 		'interface': '127.0.0.1',
 		'port': process.env.PORT ? process.env.PORT : 4101,
-		'basedir': path.join(process.cwd(), 'app')
+		'basedir': path.join(process.cwd(), 'app'),
+		'sessions': false,
+		'sessions.maxage': null,
+		'sessions.domain': null
 	};
 }
 
@@ -405,6 +426,12 @@ function parseConfig(in_config) {
 		for (var ck in in_config) {
 			config[ck] = in_config[ck];
 		}
+	}
+	
+	// validate some conflicting settings...
+	if (config['sessions'] && !config.secret) {
+		console.error("[!] Cannot enable sessions w/o secret defined!");
+		config['sessions'] = false;
 	}
 	
 	return config;
