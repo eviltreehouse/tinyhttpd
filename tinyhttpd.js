@@ -9,12 +9,15 @@ var url = require('url');
 var ejs = require('ejs');
 var less = require('less');
 var cookie = require('cookie');
+var Session = require('./lib/session');
 
 var HttpDispatcher = require('httpdispatcher');
 
 
 function TinyHttpd(config) {
 	this.config = parseConfig(config);
+	this.sessionConfig = makeSessionConfig(this.config);
+	
 	this.disp   = new HttpDispatcher();
 	this.http   = null;
 	this.url = 'http://' + [this.config.interface, this.config.port].join(":");
@@ -158,6 +161,19 @@ TinyHttpd.prototype.augmentRequest = function(req) {
 		self.my[id] = v;
 	}
 	
+	// Set up sessions..
+	if (this.config.sessions) {
+		var s = {};
+		
+		debug('in headers %j', req.headers);
+		
+		var sess = new Session(this.sessionConfig, req.headers['cookie']);
+		
+		req.session = self.session = sess.data ? sess.data : s;
+	} else {
+		self.session = null;
+	}
+	
 	// req.app.my.x or req.my.x
 	req.my = self.my;
 };
@@ -213,6 +229,17 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 		res.writeHead(301, { 'Location': to});
 		res.end();
     };
+
+	// .session - update session cookie
+	if (this.config.sessions) {
+		res.session = function(k, v) {
+			self.session[k] = v;
+			
+			var s = new Session(self.sessionConfig, "");
+			s.setData(self.session);
+			s.updateResponse(res);
+		};
+	}
 };
 
 TinyHttpd.prototype.start = function() {
@@ -239,13 +266,20 @@ TinyHttpd.prototype.start = function() {
 TinyHttpd.prototype.stop = function() {
 	return new lie((resolve) => {
 		debug("Stopping httpd service");
-		this.http.close(() => {
-			debug("httpd Stopped.");
-			this.disp = this.http = null;
-			this.started = false;
-			
-			resolve(true);
-		});
+		try {
+			this.http.close(() => {
+				debug("httpd Stopped.");
+				this.disp = this.http = null;
+				this.started = false;
+				resolve(true);
+			}, (err) => {
+				debug("!?!?!");
+				reject(err);
+			});
+		} catch(e) {
+			console.error('!!!');
+			reject(e.message);
+		}
 	});
 };
 
@@ -409,13 +443,14 @@ function mergeViewData(definite, passive) {
 
 function defaultConfig() {
 	return {
-		'secret': null,
 		'interface': '127.0.0.1',
 		'port': process.env.PORT ? process.env.PORT : 4101,
 		'basedir': path.join(process.cwd(), 'app'),
 		'sessions': false,
+		'sessions.secret': null,
 		'sessions.maxage': null,
-		'sessions.domain': null
+		'sessions.domain': null,
+		'sessions.cipher': null
 	};
 }
 
@@ -428,13 +463,25 @@ function parseConfig(in_config) {
 		}
 	}
 	
+//	debug("in config: %j", in_config);
+//	debug("ready config: %j", config);
+
 	// validate some conflicting settings...
-	if (config['sessions'] && !config.secret) {
+	if (config['sessions'] && !config['sessions.secret']) {
 		console.error("[!] Cannot enable sessions w/o secret defined!");
 		config['sessions'] = false;
 	}
 	
 	return config;
+}
+
+function makeSessionConfig(cfg) {
+	return {
+		'id': 'S',
+		'maxage': cfg['sessions.maxage'],
+		'domain': cfg['sessions.domain'],
+		'secret': cfg['sessions.secret']
+	};
 }
 
 

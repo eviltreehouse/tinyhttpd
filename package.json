@@ -10,6 +10,7 @@
   "author": "Corey Sharrah <corey@eviltreehouse.com>",
   "license": "ISC",
   "dependencies": {
+    "cookie": "^0.3.1",
     "debug": "^2.6.3",
     "ejs": "^2.5.6",
     "httpdispatcher": "^2.0.1",
