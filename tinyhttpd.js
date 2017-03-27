@@ -27,6 +27,8 @@ function TinyHttpd(config) {
 	this.version = require('./package').version;
 	this.provides = {};
 	
+	this._cache = { 'less':{} };
+	
 	var self = this;
 	
 	var parseBaseDir = function() { 
@@ -406,6 +408,10 @@ function isLess(fn) {
 
 function lessRender(th, less_file) {
 	
+	if (th.config.cache_less && th._cache.less[less_file]) {
+		return lie.resolve(th._cache.less[less_file] + "\n/* (resolved from cache) */\n");	
+	}
+	
 	var opts = {
 		'filename': less_file,
 //		'sourceMapRootPath': path.dirname(less_file) + "/"
@@ -415,6 +421,8 @@ function lessRender(th, less_file) {
 	
 	return new lie((resolve) => {
 		less.render(fs.readFileSync(less_file).toString('utf8'), opts).then((output) => {
+			if (th.config.cache_less) th._cache.less[less_file] = output.css;
+			
 			resolve(output.css);
 		}, (err) => {
 			debug("LESS render error: " + err);
@@ -446,6 +454,8 @@ function defaultConfig() {
 		'interface': '127.0.0.1',
 		'port': process.env.PORT ? process.env.PORT : 4101,
 		'basedir': path.join(process.cwd(), 'app'),
+		'cache_less': false,
+		
 		'sessions': false,
 		'sessions.secret': null,
 		'sessions.maxage': null,
