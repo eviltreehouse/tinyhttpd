@@ -8,8 +8,8 @@ Base of project: https://blog.xervo.io/build-your-first-http-server-in-nodejs
 #### TO-DOs
 * //@TODO [x]Simple session support (off-by-default)
 * //@TODO [x]LESS compile cache (off-by-default)
-* //@TODO Some sort of view cache capability (off-by-default)
 * //@TODO Extend the *provide()* system so handlers can set 'globals' visible on the rendered views.
+* //@TODO Some sort of view cache capability (off-by-default)
 * //@FIXME [x]EJS includes probably don't work as-is (needs *filename* option during render to parse paths)
 
 #### [Future] Nice-To-Haves
