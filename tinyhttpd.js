@@ -226,6 +226,11 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 		res.end(content);
 	};
 	
+	// .define - request-specific 'provide'
+	res.define = function(k, v) {
+		self.my[k] = v;	
+	};
+	
 	// .redirect - send 301
 	res.redirect = function(to) {
 		res.writeHead(301, { 'Location': to});

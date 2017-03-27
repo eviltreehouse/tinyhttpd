@@ -110,6 +110,31 @@ describe("Parsing/Providing Tests", () => {
 		}, done);		
 	});	
 	
+	it("Should be able to handle define()s from within modules", (done) => {
+		util.get('/test-define', { tv: 123 }).then((resp) => {
+			try {
+				assert(resp.code == 200, 'HTTP code is not 200');
+				assert(resp.body.match(/v is 123/));
+				done();
+			} catch(e) {
+				done(e.message);
+			}
+		});
+	});
+	
+	it("Should be able to handle define()s from within modules w/o caching them", (done) => {
+		util.get('/test-define', { tv: 105 }).then((resp) => {
+			try {
+				assert(resp.code == 200, 'HTTP code is not 200');
+				assert(resp.body.match(/v is 105/));
+				done();
+			} catch(e) {
+				done(e.message);
+			}
+		});
+	});
+	
+	
 	it("Should be able to compile LESS on-the-fly and serve standard CSS", (done) => {
 		util.get('/test.css', {}).then((resp) => {
 			try {
