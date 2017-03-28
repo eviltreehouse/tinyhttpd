@@ -137,10 +137,15 @@ TinyHttpd.prototype.setupResponseFilter = function() {
 };
 
 TinyHttpd.prototype.setupPostFilter = function() {
+	var self = this;
+	
 	this.disp.afterFilter(/\//, function(req, res, chain) {
 		debug("In post filter " + (res.finished ? '[finished]' : '[not finished]') );
 		if (! res.finished) {
-			debug("Response was hung open -- closing.");
+			debug("Response is still open");
+//			debug("%s bytes of buffer to transmit", res._buf.length);
+			if (self.my.layout) self.compileWithLayout(self.my.layout, res);
+//			else debug("No layout desired.");
 			res.end();
 		}
 		
@@ -247,9 +252,9 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 		
 		var succ = false;
 		
-		if (this.app.config.cache_views && this.app._cache[ view_file ]) {
+		if (this.app.config.cache_views && this.app._cache.view[ view_file ]) {
 			debug(`${v} is cached`);
-			src = this.app._cache[ view_file ];	
+			src = this.app._cache.view[ view_file ];	
 		} else {
 			if (fs.existsSync(view_file)) {
 				src = fs.readFileSync(view_file).toString('utf8');
@@ -259,7 +264,7 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 			
 			if (this.app.config.cache_views) {
 				debug(`${v} is NOW cached`);
-				this.app._cache[ view_file ] = src;
+				this.app._cache.view[ view_file ] = src;
 			}
 		}
 		
@@ -282,7 +287,8 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 		}
 		
 		this.writeHead(succ ? 200 : 500, { 'Content-Type': 'text/html' });
-		this.end(output);
+//		this.end(output);
+		this.write(output);
 	};
 	
 	// .err - non-200 response
@@ -319,6 +325,16 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 			s.updateResponse(res);
 		};
 	}
+};
+
+TinyHttpd.prototype.compileWithLayout = function(layout, res) {
+	var body = res._buf;
+	debug("Beginning view/layout compilation");
+	
+	// reset buffer
+	res._buf = "";
+	
+	res.render(layout, { 'content': body });
 };
 
 TinyHttpd.prototype.start = function() {
@@ -461,7 +477,7 @@ TinyHttpd.prototype.registerLess = function(ext_path, fn) {
 	var mount = (ext_path.length > 0 ? '/' : '') + `${ext_path}/${hf}.css`;
 	
 	this.disp.onGet(mount, (req, res) => {
-		lessRender(this, hp).then((output) => {
+		return lessRender(this, hp).then((output) => {
 			if (output) {
 				res.deliver('text/css', output);
 //				res.writeHead('200', {'Content-Type': 'text/css'});

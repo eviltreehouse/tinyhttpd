@@ -60,10 +60,21 @@ describe("Caching Feature Tests", () => {
 		});
 	});
 	
-	it("Render our EJS file and use the cached version", () => {
+	it("Render our EJS file and use the cached version", (done) => {
 		util.get('/cache-test').then((resp) => {
-			assert(resp.body.match(/should be cached/));
-			assert(Object.keys(th._cache.views).length == 1);
+			assert(resp.body.match(/should be cached/), 'body content not as expected');
+			assert(Object.keys(th._cache.view).length == 1, 'cache key count mismatch');
+			done();
+		}).catch((e) => {
+			done(e.message);
+		});		
+	});
+	
+	it("Render w/ a layout defined", (done) => {
+		util.get('/layout-test').then((resp) => {
+			assert(resp.body.match(/should be cached/), 'content body missing');
+			assert(resp.body.match(/\<header/), 'header tag missing');
+			assert(resp.body.match(/\<footer/), 'footer tag missing');
 			done();
 		}).catch((e) => {
 			done(e.message);
