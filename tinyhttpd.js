@@ -27,7 +27,7 @@ function TinyHttpd(config) {
 	this.version = require('./package').version;
 	this.provides = {};
 	
-	this._cache = { 'less':{} };
+	this._cache = { 'less':{},'view':{} };
 	
 	var self = this;
 	
@@ -138,7 +138,12 @@ TinyHttpd.prototype.setupResponseFilter = function() {
 
 TinyHttpd.prototype.setupPostFilter = function() {
 	this.disp.afterFilter(/\//, function(req, res, chain) {
-		debug("In post filter " + (res.finished ? '[finished]' : '[not finished]') );	
+		debug("In post filter " + (res.finished ? '[finished]' : '[not finished]') );
+		if (! res.finished) {
+			debug("Response was hung open -- closing.");
+			res.end();
+		}
+		
 		chain.next(req, res, chain);
 	});
 };
@@ -237,27 +242,46 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 	// .render - EJS shorthand
 	res.render = function(v, data) {
 		var output = "";
-		try {
-			var view_file = path.join(self.config.basedir, v + ".ejs");
+		var view_file = path.join(self.config.basedir, v + ".ejs");
+		var src;
+		
+		var succ = false;
+		
+		if (this.app.config.cache_views && this.app._cache[ view_file ]) {
+			debug(`${v} is cached`);
+			src = this.app._cache[ view_file ];	
+		} else {
 			if (fs.existsSync(view_file)) {
-				var src = fs.readFileSync(view_file).toString('utf8');
-				
-				var view_data = mergeViewData(data, self.my);
-				var opts = {
-					// so includes will work..
-					'filename': view_file
-				};
-				
-				output = ejs.render(src, view_data, opts);
+				src = fs.readFileSync(view_file).toString('utf8');
 			} else {
 				output = `[Cannot load view src: ${v}]`;
 			}
-		} catch(e) {
-			debug(e.message);
-			output = `[render() ERROR: ${e.name}]`;
+			
+			if (this.app.config.cache_views) {
+				debug(`${v} is NOW cached`);
+				this.app._cache[ view_file ] = src;
+			}
 		}
 		
-		this.writeHead(200, { 'Content-Type': 'text/html' });
+		if (src) {
+			var view_data = mergeViewData(data, self.my);
+			var opts = {
+				// so includes will work..
+				'filename': view_file
+			};
+
+			try {
+				
+				var render_scope = {};
+				output = ejs.render.apply(render_scope, [ src, view_data, opts] );
+				succ = true;
+			} catch(e) {
+				debug(e.message);
+				output = `[render() ERROR: ${e.name}] ${e.message}`;
+			}					
+		}
+		
+		this.writeHead(succ ? 200 : 500, { 'Content-Type': 'text/html' });
 		this.end(output);
 	};
 	
@@ -508,6 +532,7 @@ function defaultConfig() {
 		'port': process.env.PORT ? process.env.PORT : 4101,
 		'basedir': path.join(process.cwd(), 'app'),
 		'cache_less': false,
+		'cache_views': false,
 		
 		'sessions': false,
 		'sessions.secret': null,

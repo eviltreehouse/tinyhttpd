@@ -9,7 +9,8 @@ const TEST_CONFIG = {
 	'basedir': process.cwd() + '/test/04-cache-base',
 	'interface': INTERFACE,
 	'port': BIND_PORT,
-	'cache_less': true
+	'cache_less': true,
+	'cache_views': true
 };
 
 describe("Caching Feature Tests", () => {
@@ -49,4 +50,23 @@ describe("Caching Feature Tests", () => {
 		});
 	});
 	
+	it("Render our EJS file and cache it", (done) => {
+		util.get('/cache-test').then((resp) => {
+			assert(resp.code == 200, 'HTTP code not 200');
+			assert(resp.body.match(/should be cached/), 'body is not as expected ' + resp.body);
+			done();
+		}).catch((e) => {
+			done(e.message);
+		});
+	});
+	
+	it("Render our EJS file and use the cached version", () => {
+		util.get('/cache-test').then((resp) => {
+			assert(resp.body.match(/should be cached/));
+			assert(Object.keys(th._cache.views).length == 1);
+			done();
+		}).catch((e) => {
+			done(e.message);
+		});		
+	});
 });
