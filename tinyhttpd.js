@@ -11,7 +11,7 @@ var less = require('less');
 var cookie = require('cookie');
 var Session = require('./lib/session');
 
-var HttpDispatcher = require('httpdispatcher');
+var HttpDispatcher = require('./lib/httpdispatcher-deferred');
 
 
 function TinyHttpd(config) {
@@ -137,8 +137,6 @@ TinyHttpd.prototype.setupResponseFilter = function() {
 };
 
 TinyHttpd.prototype.setupPostFilter = function() {
-	// @todo -- do we need to do anything after we
-	// finish the request?
 	this.disp.afterFilter(/\//, function(req, res, chain) {
 		debug("In post filter...");	
 		chain.next(req, res, chain);
