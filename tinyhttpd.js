@@ -138,7 +138,7 @@ TinyHttpd.prototype.setupResponseFilter = function() {
 
 TinyHttpd.prototype.setupPostFilter = function() {
 	this.disp.afterFilter(/\//, function(req, res, chain) {
-		debug("In post filter...");	
+		debug("In post filter " + (res.finished ? '[finished]' : '[not finished]') );	
 		chain.next(req, res, chain);
 	});
 };
@@ -152,8 +152,7 @@ TinyHttpd.prototype.augmentRequest = function(req) {
 	for (var id in this.provides) {
 		var v;
 		if (typeof this.provides[id] == 'function') {
-			// @FIXME don't pass entire th instance -- but only the things that might matter.
-			v = this.provides[id](self);
+			v = this.provides[id](req);
 		} else {
 			v = this.provides[id];
 		}
@@ -184,6 +183,57 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 	// .app - reference to tinyhttpd instance
 	res.app = self;
 	
+	// side-load some http.response prims around
+	var _end = res.end;
+	var _writeHead = res.writeHead;
+	var _write = res.write;
+	
+	res._buf = "";
+	res._status_code = null;
+	res._headers = {};
+	res._set_cookie = {};
+	
+	res.write = function(content, encoding) {
+		// todo	-- support `encoding`?
+		this._buf += content;
+	};
+	
+	res.end = function(content) {
+		if (content) this._buf += content;
+		
+		var arr_headers = [];
+		
+		for (var cid in this._set_cookie) {
+			if (this._set_cookie[cid] == null)
+				arr_headers.push(cid);
+			else arr_headers.push(`${cid}=` + this._set_cookie[cid]);	
+		}
+		
+		if (arr_headers.length) this._headers['Set-Cookie'] = arr_headers;
+		
+		//debug('end() http %s headers: %j, buffer: %s', this._status_code, this._headers, this._buf);
+		
+		_writeHead.apply(this, [this._status_code, this._headers]);
+		
+		// put back write() b/c end() uses it..
+		res.write = _write;
+		
+		_end.apply(this, [this._buf]);
+	};
+	
+	res.writeHead = function(status_code, headers) {
+		this._status_code = status_code;
+		if (headers) {
+			for (var hi in headers) {
+				this._headers[hi] = headers[hi];
+			}
+		}
+	};
+	
+	res.cookie = function(id, cv) {
+		this._set_cookie[id] = cv;	
+	};
+	
 	// .render - EJS shorthand
 	res.render = function(v, data) {
 		var output = "";
@@ -207,21 +257,21 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 			output = `[render() ERROR: ${e.name}]`;
 		}
 		
-		res.writeHead(200, { 'Content-Type': 'text/html' });
-		res.end(output);
+		this.writeHead(200, { 'Content-Type': 'text/html' });
+		this.end(output);
 	};
 	
 	// .err - non-200 response
 	res.err = function(http_code, err_msg, c_type) {
 		if (! c_type) c_type = 'text/plain';
-		res.writeHead(http_code, { 'Content-Type': c_type });
-		res.end(err_msg ? err_msg : '');
+		this.writeHead(http_code, { 'Content-Type': c_type });
+		this.end(err_msg ? err_msg : '');
 	};
 	
 	// .deliver - send 200, ctype, .end(content)
 	res.deliver = function(c_type, content) {
-		res.writeHead(200, { 'Content-Type': c_type});
-		res.end(content);
+		this.writeHead(200, { 'Content-Type': c_type });
+		this.end(content);
 	};
 	
 	// .define - request-specific 'provide'
@@ -231,7 +281,7 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 	
 	// .redirect - send 301
 	res.redirect = function(to) {
-		res.writeHead(301, { 'Location': to});
+		res.writeHead(301, { 'Location': to });
 		res.end();
     };
 

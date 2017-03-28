@@ -33,13 +33,13 @@ describe("TinyHttpd deferred rendering tests", () => {
 	
 	it("Should handle adding manual routes properly", () => {
 		th.route("/nondeferred", "get", function(req, res) {
-			res.deliver("test/html", "Not-Deferred 123");
+			res.deliver("text/html", "Not-Deferred 123");
 		});
 		
 		th.route("/deferred", "get", function(req, res) {
 			return new lie((resolve, reject) => {
 				setTimeout(() => {
-					res.deliver("test/html", "Deferred 123 after 500ms");
+					res.deliver("text/html", "Deferred 123 after 500ms");
 					resolve(true);
 				}, 500);
 			});
@@ -49,7 +49,7 @@ describe("TinyHttpd deferred rendering tests", () => {
 	it("Should handle calling manual routes properly", (done) => {
 		util.get('/nondeferred').then((resp) => {
 			   assert(resp.code == 200, 'HTTP code was not 200 -- ' + resp.code);
-			   assert(resp.body == 'Not-Deferred 123', 'Returned content was not as expected.');
+			   assert(resp.body == 'Not-Deferred 123', 'Returned content was not as expected. (' + resp.body + ')');
 				done();
 	   	}, done)
 			.catch((err) => { done(err) })
@@ -59,7 +59,7 @@ describe("TinyHttpd deferred rendering tests", () => {
 	it("Should handle calling deferred routes properly", (done) => {
 		util.get('/deferred').then((resp) => {
 			   assert(resp.code == 200, 'HTTP code was not 200 -- ' + resp.code);
-			   assert(resp.body == 'Deferred 123 after 500ms', 'Returned content was not as expected.');
+			   assert(resp.body == 'Deferred 123 after 500ms', 'Returned content was not as expected. (' + resp.body + ')');
 				done();
 	   	}, done)
 			.catch((err) => { done(err) })
