@@ -6,7 +6,7 @@ http://github.com/eviltreehouse/tinyhttpd.git
 Base of project: https://blog.xervo.io/build-your-first-http-server-in-nodejs
 
 #### TO-DOs
-// @TODO Add Markdown support
+// @TODO [x]Add Markdown support
 * //@FIXME [x]Fix support for deferred requests (and buffered response processing)
 * //@TODO [x]Simple session support (off-by-default)
 * //@FIXME [x]Handle session cookies in a smarter fashion (don't clobber the Set-Cookie header...)
