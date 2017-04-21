@@ -58,6 +58,31 @@ describe("Parsing/Providing Tests", () => {
 				done(e.message);
 			}
 		}, done);
+	});
+	
+	it("Should serve requests that involve handler modules and Markdown", (done) => {
+		util.get('/markdown', {}).then((resp) => {
+			try {
+				assert(resp.code == 200, 'HTTP code is not 200');
+				assert(resp.body.match(/\<strong\>/), 'body did not contain expected HTML tags');
+				done();
+			} catch (e) {
+				done(e.message);
+			}
+		}, done);
+	});
+	
+	it("Should serve requests that involve handler modules and EJS -> Markdown", (done) => {
+		util.get('/ejsmd', {}).then((resp) => {
+			try {
+				assert(resp.code == 200, 'HTTP code is not 200');
+				assert(resp.body.match(/Title/), 'body did not contain expected interpolated output');
+				assert(resp.body.match(/\<strong\>/), 'body did not contain expected HTML tags');
+				done();
+			} catch (e) {
+				done(e.message);
+			}
+		}, done);
 	});	
 	
 	it("Should be able to serve handlers within subdirs", (done) => {

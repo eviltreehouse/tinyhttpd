@@ -7,6 +7,7 @@ var spawn = require('child_process').spawn;
 var httpd = require('http');
 var url = require('url');
 var ejs = require('ejs');
+var marked = require('marked');
 var less = require('less');
 var cookie = require('cookie');
 var Session = require('./lib/session');
@@ -244,8 +245,62 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 		this._set_cookie[id] = cv;	
 	};
 	
+	res.renderMd = res.renderMarkdown = function(o) {
+		o = o || {};
+		
+		var v;
+		var src;
+		
+		if (typeof o == 'object') {
+			// We can render an EJS *into* markdown and serve it going forward.
+			var buf = {};
+			this.render(o.from, typeof o.data == 'object' ? o.data : {}, buf);
+			
+			src = buf.buffer ? buf.buffer : null;
+		} else {
+			v = o;
+		}
+
+		var md_file = path.join(self.config.basedir, v + ".md");
+		var output = "";
+		var succ = false;
+
+		if (! src) {
+			var cache_key = "md:" + v;
+			if (this.app.config.cache_views && this.app._cache.view[ cache_key ]) {
+				debug(`${cache_key} is cached`);
+				src = this.app._cache.view[ cache_key ];	
+			} else {
+				if (fs.existsSync(md_file)) {
+					src = fs.readFileSync(md_file).toString('utf8');
+				} else {
+					output = `[Cannot load markdown src: ${v}]`;
+				}
+
+				if (this.app.config.cache_views) {
+					debug(`${cache_key} is NOW cached`);
+					this.app._cache.view[ cache_key ] = src;
+				}
+			}
+		}
+		
+		if (src) {
+			try {				
+				var render_scope = {};
+				output = marked.parse(src);
+				succ = true;
+			} catch(e) {
+				debug(e.message);
+				output = `[renderMarkdown() ERROR: ${e.name}] ${e.message}`;
+			}					
+		}
+		
+		this.writeHead(succ ? 200 : 500, { 'Content-Type': o.content_type ? o.content_type : 'text/html' });		
+		this.write(output);
+	};
+	
 	// .render - EJS shorthand
-	res.render = function(v, data) {
+	res.render = function(v, data, io_pipe) {
 		var output = "";
 		var view_file = path.join(self.config.basedir, v + ".ejs");
 		var src;
@@ -288,7 +343,8 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 		
 		this.writeHead(succ ? 200 : 500, { 'Content-Type': 'text/html' });
 //		this.end(output);
-		this.write(output);
+		if (io_pipe) io_pipe.buffer = output;
+		else this.write(output);
 	};
 	
 	// .err - non-200 response
