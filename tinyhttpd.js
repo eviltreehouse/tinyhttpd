@@ -141,16 +141,20 @@ TinyHttpd.prototype.setupPostFilter = function() {
 	var self = this;
 	
 	this.disp.afterFilter(/\//, function(req, res, chain) {
-		debug("In post filter " + (res.finished ? '[finished]' : '[not finished]') );
-		if (! res.finished) {
-			debug("Response is still open");
-//			debug("%s bytes of buffer to transmit", res._buf.length);
-			if (self.my.layout) self.compileWithLayout(self.my.layout, res);
-//			else debug("No layout desired.");
-			res.end();
+		if (res.is_static) {
+			debug("Static request -- skipping after Filter");
+		} else {
+			debug("In post filter " + (res.finished ? '[finished]' : '[not finished]') );
+			if (! res.finished) {
+				debug("Response is still open");
+	//			debug("%s bytes of buffer to transmit", res._buf.length);
+				if (self.my.layout) self.compileWithLayout(self.my.layout, res);
+	//			else debug("No layout desired.");
+				res.end();
+			}
+
+			chain.next(req, res, chain);
 		}
-		
-		chain.next(req, res, chain);
 	});
 };
 
@@ -198,6 +202,15 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 	var _end = res.end;
 	var _writeHead = res.writeHead;
 	var _write = res.write;
+	
+	res.is_static = false;
+	
+	res.restoreOriginal = function() {
+		// put back all methods (for upstream compat)
+		res.end = _end;
+		res.writeHead = _writeHead;
+		res.write = _write;
+	};
 	
 	res._buf = "";
 	res._status_code = null;
@@ -424,11 +437,9 @@ TinyHttpd.prototype.stop = function() {
 				this.started = false;
 				resolve(true);
 			}, (err) => {
-				debug("!?!?!");
 				reject(err);
 			});
 		} catch(e) {
-			console.error('!!!');
 			reject(e.message);
 		}
 	});

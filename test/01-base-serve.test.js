@@ -6,7 +6,7 @@ var TinyHttpd = require('../tinyhttpd');
 const INTERFACE = '127.0.0.1';
 const BIND_PORT = '19891';
 const TEST_CONFIG = {
-	'basedir': null,
+	'basedir': process.cwd() + '/test/01-test-base',
 	'interface': INTERFACE,
 	'port': BIND_PORT
 };
@@ -14,7 +14,7 @@ const TEST_CONFIG = {
 describe("Base httpd responsibilites", () => {
 	var th = null;
 	
-	before('Starting tinyhttpd', function(done) {
+	beforeEach('Starting tinyhttpd', function(done) {
 		th = new TinyHttpd(TEST_CONFIG).then((self) => {
 			th = self;
 			
@@ -24,7 +24,7 @@ describe("Base httpd responsibilites", () => {
 		}, done);
 	});
 	
-	after('Stopping tinyhttpd', function(done) {
+	afterEach('Stopping tinyhttpd', function(done) {
 		th.stop().then(() => {
 			th = null;
 			done();
@@ -44,6 +44,38 @@ describe("Base httpd responsibilites", () => {
 				done(e.message);
 			}
 		}, done);
+	});
+	
+	it("Should serve static HTTP files properly", (done) => {
+		th.disp.setStatic('/');
+		th.disp.setStaticDirname(TEST_CONFIG.basedir);
+		
+		util.get('/css/main.css', {}).then((resp) => {
+			try {
+				assert(resp.code == 200, 'HTTP code is not 200 -> ' + resp.code);
+				assert(resp.body ? true : false, 'there is no body');
+				assert(resp.body.match(/static CSS file/), 'Content is not as expected.');
+				done();
+			} catch(e) {
+				done(e.message);
+			}
+		}, done);		
+	});
+	
+	it("Should serve static HTTP files from a static storage directory", (done) => {
+		th.disp.setStatic('/s');
+		th.disp.setStaticDirname(TEST_CONFIG.basedir + '/static');
+		
+		util.get('/s/css/main-2.css', {}).then((resp) => {
+			try {
+				assert(resp.code == 200, 'HTTP code is not 200');
+				assert(resp.body ? true : false, 'there is no body');
+				assert(resp.body.match(/static CSS file behind/), 'Content is not as expected.' + resp.body);
+				done();
+			} catch(e) {
+				done(e.message);
+			}
+		}, done);		
 	});
 	
 	it("Should let us establish a static route and read from it", function(done) {
