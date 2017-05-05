@@ -183,6 +183,23 @@ describe("Parsing/Providing Tests", () => {
 				done(e.message);
 			}
 		}, done);		
+	});
+	
+	it("Should be able to catch Errors generated in the handler code", (done) => {
+		// define a custom fatal error handler
+		th.fatal((err, req, res) => {
+			res.writeHead(500, { 'content-type': 'text/plain' });
+			res.write('Server-side Fatal Error');
+		});
 		
+		util.get('/throw-error').then((resp) => {
+			try {
+				assert(resp.code == 500, 'HTTP code is not 500');
+				assert(resp.body == 'Server-side Fatal Error');
+				done();
+			} catch(e) {
+				done.message;
+			}
+		}, done);
 	});
 });

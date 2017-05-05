@@ -45,6 +45,11 @@ function TinyHttpd(config) {
 	return parseBaseDir().then(setUp).catch((err) => { console.error('err!', err); });
 }
 
+TinyHttpd.prototype.fatal = function(cb) {
+	this.disp.onFatal(cb);
+	return this;
+};
+
 TinyHttpd.prototype.provide = function(id, cb) {
 	this.provides[id] = cb;
 };
@@ -408,7 +413,7 @@ TinyHttpd.prototype.compileWithLayout = function(layout, res) {
 	// reset buffer
 	res._buf = "";
 	
-	res.render(layout, { 'content': body });
+	res.render(layout, { 'content': body, 'my': this.my });
 };
 
 TinyHttpd.prototype.start = function() {
@@ -644,7 +649,7 @@ function parseConfig(in_config) {
 
 	// validate some conflicting settings...
 	if (config['sessions'] && !config['sessions.secret']) {
-		console.error("[!] Cannot enable sessions w/o secret defined!");
+//		console.error("[!] Cannot enable sessions w/o secret defined!");
 		config['sessions'] = false;
 	}
 	

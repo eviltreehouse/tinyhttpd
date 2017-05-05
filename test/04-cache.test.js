@@ -75,6 +75,7 @@ describe("Caching Feature Tests", () => {
 			assert(resp.body.match(/should be cached/), 'content body missing');
 			assert(resp.body.match(/\<header/), 'header tag missing');
 			assert(resp.body.match(/\<footer/), 'footer tag missing');
+			assert(resp.body.match(/gv: 123/), 'global provided value missing');
 			done();
 		}).catch((e) => {
 			done(e.message);
