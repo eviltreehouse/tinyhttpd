@@ -121,6 +121,41 @@ describe("Parsing/Providing Tests", () => {
 		});
 	});	
 	
+	it("Should be able to process `continue every` pre-handlers properly", (done) => {
+		util.get('/every/req1', {}).then((resp) => {
+			try {
+				assert(resp.code == 200, 'HTTP code is not 200');
+				assert(resp.body.match(/gv is 123/), 'Body is not as expected');
+				done();
+			} catch(e) {
+				done(e.message);
+			}
+		});
+	});
+
+	it("Should be able to process `stop every` pre-handlers properly", (done) => {
+		util.get('/every-handle/req2', {}).then((resp) => {
+			try {
+				assert(resp.code == 200, 'HTTP code is not 200');
+				assert(resp.body.match(/handled/), 'Body is not as expected');
+				done();
+			} catch(e) {
+				done(e.message);
+			}
+		});
+	});
+
+	it("Should be able to process `continue every` pre-handlers when the target handler doesnt exist", (done) => {
+		util.get('/every/req-nonexist', {}).then((resp) => {
+			try {
+				assert(resp.code == 404, 'HTTP code is not 404');
+				done();
+			} catch(e) {
+				done(e.message);
+			}
+		});
+	});
+	
 	it("Should be able to access provisions from handler modules", (done) => {
 		th.provide('secret', 'sosecret');
 		util.get('/checkmy', {}).then((resp) => {

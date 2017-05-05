@@ -103,4 +103,26 @@ describe("Base httpd responsibilites", () => {
 //			done();
 		}, done);
 	})
+	
+	it("Should let us serve JSON easily", function(done) {
+		th.route('/get-json', 'get', function(req, res) {
+			obj = { 'abc': 123, 'xyz': true, 'arr': [ 1, 2, 3, 4, 5 ] };
+			res.deliverJson(obj);
+		});
+		
+		util.get('/get-json', {}).then(function(resp) {
+			try {
+				assert(resp.code == 200, 'HTTP code is not 200');
+				assert(resp.headers['content-type'] == 'application/json', 'Content type is not as expected');
+				var json = JSON.parse(resp.body);
+				assert(json);
+				assert(json.abc === 123);
+				assert(json.xyz === true);
+				assert(json.arr.length == 5);
+				done();
+			} catch(e) {
+				done(e.message);
+			}
+		});
+	});
 });

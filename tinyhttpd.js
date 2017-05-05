@@ -172,6 +172,11 @@ TinyHttpd.prototype.augmentRequest = function(req) {
 	var parsed_url = url.parse(req.url, true);
 	req.query = parsed_url.query;
 	req.pathname = parsed_url.pathname;
+	
+	// some constants for our every handlers
+	req.CONTINUE = true;
+	req.HANDLED  = false;
+	// ...
 
 	// Set up our custom provisions
 	for (var id in this.provides) {
@@ -378,9 +383,25 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 	};
 	
 	// .deliver - send 200, ctype, .end(content)
-	res.deliver = function(c_type, content) {
-		this.writeHead(200, { 'Content-Type': c_type });
+	res.deliver = function(c_type, content, x_headers) {
+		var h = typeof x_headers == 'object' ? h : {};
+		h['Content-Type'] = c_type;
+		
+		this.writeHead(200, h);
 		this.end(content);
+	};
+	
+	res.deliverJson = function(json, x_headers) {
+		var output = "";
+		if (typeof json == 'object') {
+			try {
+				output = JSON.stringify(json);
+			} catch(e) {
+				output = "{}";
+			}
+		} else output = json;
+		
+		res.deliver('application/json', output, x_headers);
 	};
 	
 	// .define - request-specific 'provide'
@@ -489,7 +510,8 @@ TinyHttpd.prototype.register = function(ext_path, fn) {
 	
 	var rmeth = {
 		'get':  'onGet',
-		'post': 'onPost'
+		'post': 'onPost',
+		'every': 'beforeFilter'
 	};
 	
 	var mounts = [];
@@ -504,14 +526,20 @@ TinyHttpd.prototype.register = function(ext_path, fn) {
 			)
 		);
 	} else {
-		// standard exact-match handler
-		mounts.push((ext_path ? "/" + ext_path : '') + "/" + 
-			(mpath == 'index' ? '' : mpath)
-		);
+		if (method == 'every') {
+			// 'before' handler within a given path.
+			var re = new RegExp("^" + (ext_path ? "/" + ext_path : '') + "/");
+			mounts.push(re);
+		} else {
+			// standard exact-match handler
+			mounts.push((ext_path ? "/" + ext_path : '') + "/" + 
+				(mpath == 'index' ? '' : mpath)
+			);
 
-		if (mpath == 'index' && ext_path.length > 0) {
-			// let index response to /dir as well as /dir/
-			mounts.push("/" + ext_path);
+			if (mpath == 'index' && ext_path.length > 0) {
+				// let index response to /dir as well as /dir/
+				mounts.push("/" + ext_path);
+			}
 		}
 	}
 	
@@ -535,11 +563,33 @@ TinyHttpd.prototype.register = function(ext_path, fn) {
 				
 				return hndl(req, res, id);
 			};
+		} else if (method == 'every') {
+			// manage the HttpChain for us so our handlers can stay neat and tidy.
+			var hndl = h;
+			h = function(req, res, chain) {
+				var result = hndl(req, res);
+				
+				// default to continue
+				if (typeof result == 'undefined') result = true;
+				
+				if (result === true) {
+					chain.next(req, res, chain);
+				} else if (result === false) {
+					// don't call 'next' -- but that means it MUST terminate the response w/ end() ;)
+					//chain.next(req, res, chain);
+				} else if (typeof result == 'object' && result.constructor.name == 'Promise') {
+					// wait for async operation to complete.
+					var chain_ctn = function() { chain.next(req, res, chain); };
+					result.then(chain_ctn, chain_ctn);
+				}
+			};
 		}
+		
 		for (var mi in mounts) {
 			var mount = mounts[mi];
 			
-			this.disp[rmeth[method]](mount, h);
+			this.disp[rmeth[method]](mount, h);	
+			
 			debug("ADDED %s %s => %s", method.toUpperCase(), typeof mount == 'string' ? mount : mount.toString(), fn);
 //			if (dashx) debug("DASH-X => TRUE");
 		}
@@ -569,7 +619,7 @@ TinyHttpd.prototype.registerLess = function(ext_path, fn) {
 };
 
 function isValidHandler(fn) {
-	return fn.match(/\.(?:get|post)\.js$/);
+	return fn.match(/\.(?:get|post|every)\.js$/);
 }
 
 function isLess(fn) {
