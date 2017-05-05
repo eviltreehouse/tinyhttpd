@@ -383,9 +383,9 @@ TinyHttpd.prototype.augmentResponse = function(res) {
 		self.my[k] = v;	
 	};
 	
-	// .redirect - send 301
-	res.redirect = function(to) {
-		res.writeHead(301, { 'Location': to });
+	// .redirect - send 30x
+	res.redirect = function(to, found) {
+		res.writeHead(found == true ? 302 : 301, { 'Location': to });
 		res.end();
     };
 
