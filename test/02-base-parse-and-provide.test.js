@@ -33,7 +33,19 @@ describe("Parsing/Providing Tests", () => {
 	
 	it("Should init and start up", () => {
 		assert(th.started);
-	})
+	});
+	
+	it("Should pass parsed URI parameters to handler modules", (done) => {
+		util.get('/checkquery?qv=455?qv2=919', {}).then((resp) => {
+			try {
+				assert(resp.code == 200, 'HTTP code is not 200');
+				assert(resp.body.match(/qv is 455/), 'body is not as expected: ' + resp.body);
+				done();
+			} catch(e) {
+				done(e.message);
+			}
+		}, done);		
+	});
 	
 	it("Should serve requests that involve handler modules and EJS", (done) => {
 		util.get('/', {}).then((resp) => {

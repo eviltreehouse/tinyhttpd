@@ -162,6 +162,11 @@ TinyHttpd.prototype.augmentRequest = function(req) {
 	var self = this;
 	
 	self.my = {};
+	
+	// parse URL params
+	var parsed_url = url.parse(req.url, true);
+	req.query = parsed_url.query;
+	req.pathname = parsed_url.pathname;
 
 	// Set up our custom provisions
 	for (var id in this.provides) {
